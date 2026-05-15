@@ -38,7 +38,8 @@ async function inject(tabId) {
 // Loop de monitoramento
 setInterval(async () => {
     const tabs = await getTabs();
-    const ytTabs = tabs.filter(t => t.url.includes('youtube.com') && t.type === 'page');
+    console.log(`[Serialize] Monitorando... Abas abertas: ${tabs.length}`); // <-- ADICIONE ESTA LINHA
+    const ytTabs = tabs.filter(t => t.url && t.url.includes('youtube.com') && t.type === 'page');
     
     for (const tab of ytTabs) {
         inject(tab.id);
