@@ -15,6 +15,6 @@ if ($chromeLnk) {
 }
 
 # 2. Baixa o 'core.js' (Futuro Adblock/Marketplace)
-# Invoke-WebRequest -Uri "https://raw.githubusercontent.com/SEU_USER/serialize.10/main/core.js" -OutFile "$installPath\core.js"
+# Invoke-WebRequest -Uri "https://raw.githubusercontent.com/denishark333/serialize.10/main/core.js" -OutFile "$installPath\core.js"
 
 Write-Host "Instalação concluída. Reinicie o Chrome pelo atalho modificado."
