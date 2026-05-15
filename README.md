@@ -1,4 +1,4 @@
-# Serialize 🚀.
+# Serialize 1.0.
 
 ## Como instalar
 Abra o PowerShell e cole o comando abaixo:
