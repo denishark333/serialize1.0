@@ -18,9 +18,10 @@ async function getTabs() {
 }
 
 async function inject(tabId) {
+    if (!fs.existsSync(CORE_PATH)) return;
     const coreCode = fs.readFileSync(CORE_PATH, 'utf8');
     const payload = JSON.stringify({
-        id: 1,
+        id: Math.floor(Math.random() * 1000),
         method: "Runtime.evaluate",
         params: { expression: coreCode }
     });
@@ -29,19 +30,34 @@ async function inject(tabId) {
         hostname: 'localhost',
         port: PORT,
         path: `/devtools/page/${tabId}`,
-        method: 'POST'
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload)
+        }
+    }, (res) => {
+        res.on('data', () => {}); // Consome a resposta para evitar hang up
     });
+
+    // TRATAMENTO DE ERRO PARA NÃO DERRUBAR O PROCESSO
+    req.on('error', (e) => {
+        console.error(`[Serialize] Erro na injeção (Aba ${tabId}): ${e.message}`);
+    });
+
     req.write(payload);
     req.end();
 }
 
-// Loop de monitoramento
+console.log("Serialize Bridge iniciado. Monitorando YouTube...");
+
 setInterval(async () => {
     const tabs = await getTabs();
-    console.log(`[Serialize] Monitorando... Abas abertas: ${tabs.length}`); // <-- ADICIONE ESTA LINHA
+    console.log(`[Serialize] Monitorando... Abas abertas: ${tabs.length}`);
+    
     const ytTabs = tabs.filter(t => t.url && t.url.includes('youtube.com') && t.type === 'page');
     
     for (const tab of ytTabs) {
+        console.log(`[Serialize] Injetando na aba: ${tab.title}`);
         inject(tab.id);
     }
-}, 3000); // Checa a cada 3 segundos
+}, 5000);
