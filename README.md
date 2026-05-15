@@ -1,5 +1,4 @@
-# Serialize 🚀
-O Spicetify para YouTube.
+# Serialize 🚀.
 
 ## Como instalar
 Abra o PowerShell e cole o comando abaixo:
